@@ -1,0 +1,95 @@
+#lang racket
+
+
+(define cypher-a
+  '((#\a j) (#\b w) (#\c 3) (#\d 6) (#\e h) (#\f v)
+            (#\g 9) (#\h ~) (#\i 1) (#\j d) (#\k l) (#\l y)
+            (#\m b) (#\n s) (#\o 0) (#\p g) (#\q x) (#\r e)
+            (#\s q) (#\t 7) (#\u z) (#\v u) (#\w i) (#\x g)
+            (#\y 8) (#\z 2) (#\space 4)))
+
+
+
+
+(define encode-a
+  (let ((encoded-phrase '()))
+    (let ((pre-code '()))
+      (lambda()
+        (let ((sentence (sentence-to-list (string-downcase(read-line)))))
+          (display cypher-a)
+          (printf"\n")
+          (display sentence)
+          (set! encoded-phrase (encode-sentence cypher-a sentence '()))
+          (printf"\n")
+          (set! sentence (wordify sentence '() ""))
+          (printf"\nOriginal sentence: ")
+          (display sentence)         
+          (printf"\nEncoded result: ")
+          (display encoded-phrase)                            
+          (printf"\n")
+          )))))
+
+;===========================PROCEDURE CALL LIST=======================
+
+
+(define sentence-to-list
+  (lambda (str)
+    (string->list (string-downcase str))))
+
+(define wordify  
+  (lambda (list-of-chars transfer-list current-word)                    
+    (cond
+      ;if list-of-chars is empty, the procedure is done, return the list of strings
+      ((equal? list-of-chars '())       
+       (set! transfer-list (append-list transfer-list current-word))
+       ;(printf"\ncomplete....")(display transfer-list)
+       transfer-list)
+      ((equal? (car list-of-chars) #\?)       
+       (set! transfer-list (append-list transfer-list current-word))
+       (set! transfer-list (append-list transfer-list #\?))
+       transfer-list
+       )               
+      ;if the car of the list of chars is a space, start a new string,
+      ;and add the current string to transfer list              
+      ((char-whitespace? (car list-of-chars))  ;if a word has been finished
+       (if (eqv? transfer-list '())
+           (set! transfer-list (list current-word))
+           (set! transfer-list (append-list transfer-list current-word)))
+       (wordify (cdr list-of-chars) transfer-list "")
+       )      
+      ;or else add the car of the list of chars to the current word
+      ;and run wordify on the remainder of the list of chars
+      (else  
+       (wordify (cdr list-of-chars) transfer-list
+                (string-append current-word (string (car list-of-chars))))                       
+       ))))
+
+
+(define encode-sentence 
+  (lambda (key sentence translation)
+    
+    
+    (cond 
+      ((eqv? sentence '())
+       translation)
+      ((assoc (car sentence) key)
+       (begin
+       (set! translation
+             (append-list translation (cdr(assoc (car sentence) key))))
+       (encode-sentence key (cdr sentence) translation)))
+      (else
+       (display "...")
+       (set! translation (append-list translation "dnx"))
+       (encode-sentence key (cdr sentence) translation))
+       )))
+
+(define append-list
+  (lambda (list-to-append append-element)
+    (if (eqv? list-to-append '())
+        (list append-element)
+        (cons (car list-to-append) (append-list (cdr list-to-append) append-element))
+        )))
+
+
+
+(encode-a)

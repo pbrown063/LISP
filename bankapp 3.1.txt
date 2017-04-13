@@ -1,0 +1,713 @@
+#lang racket
+
+;=================================================================================================
+;=====================================COMMENTS SECTION============================================
+
+#| 
+A BANK ACCOUNT INTERACTIVE MENU SET THAT ALLOWS CLIENT (ACCOUNT-HOLDER) DATA TO BE
+STORED IN THE FORMAT: 
+(CUSTOMER-NAME PASSWORD ACCOUNT-NUMBER BALANCE)
+
+WITH THE EXTENDED CUS-LIST IN THE FORMAT:
+((((CUS-NAM ACC-NUM ACC-BAL) C1 PASS1 123 5) C2 PASS6 124 8) C3 PASS9 125 3)
+*THE ACCOUNT HEADER IS MEANT TO BE A STATIC REFERENCE POINT FOR ANYONE LOOKING AT
+THE RAW ACCOUNT DATA
+
+EG.
+
+>(CAR CUS-LIST) 
+WILL RETURN THE ENTIRE CUSTOMER LIST EXCLUDING THE TAILING EMPTY LIST.... WHILE
+
+>(CDR CUS-LIST) 
+WILL RETURN ONLY THE TAILING EMPTY LIST.  
+
+THE PROGRAM RUNS INSIDE OF AN ARTIFICIAL TOP-LEVEL ENVIRONMENT SO THAT VARIABLES
+ARE NOT VISIBLE TO THE TRUE GLOBAL ENVIRONMENT (LEXICAL SCOPING)
+
+
+THERE ARE THREE CATEGORIES OF USERS:
+1) USER - NO AUTHENTICATION IS REQUIRED, ACTIONS ARE LIMITED TO STARTING A NEW ACCOUNT
+2) CUSTOMER - MUST INPUT CORRECT (CASE SENSITIVE) NAME AND PASSWORD
+              ACTIONS ARE LIMITED TO ALTERING THEIR OWN ACCOUNT, BUT CANNOT VIEW ANY 
+			  OTHER ACCOUNTS
+3) MANAGER - SINGLE PASSWORD AUTHENTICATION REQUIRED
+             ACTIONS HAVE NO LIMITS AND ARE PERMENENT AND IRREVOCABLE
+			 ANY ACCOUNT CAN BE ALTERED IN ANY WAY UPON NAME LOOKUP
+			 CUS-LIST CAN BE RESET, ERASING ALL RECORDS
+|#
+
+
+
+;=================================================================================================
+;=========================================TODO====================================================
+;CHANGE TITLE LIST TO INCLUDE CUS-PW
+;COMPLETELY RESTRUCTURE THE CUSTOMER-LIST / CUS-LIST TO RESEMBLE AN ASSOCIATION LIST
+;CREATE PROCEDURE TO TRANSFER FUNDS FROM ONE ACCOUNT TO ANOTHER
+;MANAGER MENU - LIST ALL CUSTOMERS WITH A BALANCE GREATER THAN DESIGNATED AMOUNT
+;INCREASE SECURITY BY STORING PASSWORDS AS HASH ONLY (NEVER IN PLAIN TEXT) WITH REMOTE HASH TABLE
+;READ / WRITE FILE TO STORE DATA AND PERFORM REMOTE OPERATIONS ON PASSWORDS WITH HASH TABLE
+
+
+;=================================================================================================
+;=================================PRIMARY LET VARIABLES===========================================
+;==   N __ THE ACCOUNT NUMBER INCREMEMNTER
+;==   CUSTOMER-LIST __ THE COMPLETE CUSTOMER LIST WITH TITLE HEADER
+;==   TLM, CIM, MOM, GOMI, FCU __ ARE ALL MENU INPUT VARIABLES
+
+
+
+;==
+;========
+;====================
+;==================================
+;=============================================
+;==========================================================
+;====================================================================
+;========================================================================================
+;======================================CODE START=================================================
+;=================================================================================================
+;=================================================================================================
+
+
+
+
+;=================================================================================================
+;==========================================TOP-LEVEL==============================================
+;==THE ARTIFICIAL GLOBAL ENVIRONMENT THAT RUNS WITHIN TRUE GLOBAL
+;==PROCEDURES ARE DEFINED GLOBALLY
+;==VARIABLES ARE REFERRED TO WITH LET PROCEDURES
+;==TLM IS THE TOP LEVEL MENU INPUT VARIABLE
+;================================================================ 
+(define top-level 
+  (lambda()
+    (let ((n 144)) 
+      (let ((customer-list (cons 'cus-nam (cons 'acc-num (cons 'acc-bal '())))))               
+        (let((tlm 0))   
+          (do()          
+            ((= tlm 9)) 
+			
+            (printf "\nEnter 1 and return to begin banking")
+            (printf "\n1.Run Golden Goblin Banking App")      
+            (printf "\n9.Exit")
+            (\newline)
+            ;==USER_INPUT
+            (set! tlm (read))  
+            (if (not(number? tlm))
+                (set! tlm 93)
+                (\newline))      
+            
+            (cond
+              ((= tlm 1)
+               (printf "\nRunning the banking program...")               
+               (set! customer-list (goblin-banking customer-list n))
+               (set! n (cdr customer-list))
+               (set! customer-list (car customer-list))) 
+              (else
+               (printf "\nPlease select a valid option from the menu")))))))))
+			   
+			   
+			   
+			   
+;=================================================================================================
+;=========================================MENUS===================================================
+;=================================================================================================
+
+
+
+;===================================MAIN-MENU-DISPLAY=============================================
+;==PRINT DISPLAY FOR THE MAIN CUSTOMER MENU
+;==========================================
+(define main-menu-display
+  (lambda()
+    (\newline)
+    (printf "\nEnter 1 - 9 and return")
+    (printf "\n1.Sidewall options")         
+    (printf "\n2.Purple monkey dishwasher") 
+    (printf "\n3.Login to your bank account")
+    (printf "\n4.Create a new account")
+    (printf "\n5.List customer accounts")
+    (printf "\n6.Manager's Menu")
+    (printf "\n9.Finish banking and exit app")
+    (printf "\n")))
+
+
+
+;===================================CUSTOMER-ACCOUNT-MENU-DISPLAY=================================
+;==PRINT DISPLAY FOR THE CUSTOMER INTERFACE (ONCE PASSWORD CHECKED)
+;==================================================================
+(define customer-account-menu-display
+  (lambda()
+    (\newline)
+    (printf "\nWhat would you like to do today? (Enter 1-6)")
+    (printf "\n1.Display account balance")
+    (printf "\n2.Deposit funds")
+    (printf "\n3.Make a withdrawal")
+    (printf "\n4.Extended menu option")
+    (printf "\n5.Display current account information")
+    (printf "\n6.Finish banking and exit\n")))
+	
+	
+
+;=========================================SECRET-MENU-DISPLAY=====================================
+;==PRINT DISPLAY FOR THE MANAGERS MENU (PASSWORD PROTECTED)
+;==========================================================	
+(define secret-menu-display
+  (lambda()
+    (\newline)
+    (printf "\nManager Menu")
+    (printf "\n1.Display full list of customers")
+    (printf "\n2.Alter customer account information")
+    (printf "\n3.Display (car cus-list) of full list")
+    (printf "\n4.Dispaly (cdr cus-list) of full list")
+    (printf "\n5.Display (cdar cus-list) of full list")
+    (printf "\n6.Display (cddar cus-list) of full list")
+    (printf "\n7.Display the total reserves in the bank")
+    (printf "\n8.Delete all accounts")
+    (printf "\n9.Exit")
+    (\newline)))
+	
+	
+
+;========================================CUSTOMER-INTERFACE=======================================
+;==THE MAIN OPERATIONAL MENU FOR THE CUSTOMER TO INTERACT WITH
+;==ONCE LOGGED IN WITH CORRECT NAME AND PASSWORD CREDENTIALS
+;==NAME-GATE IS THE VARIABLE TO BREAK THE LOOP IF NAME IS NOT FOUND
+;==CIM IS THE CUSTOMER INTERFACE MENU INPUT VARIABLE
+;==================================================================
+(define customer-interface
+  (lambda(cus-list)
+    (let ((name-gate 2)) 
+      (let ((cim 6)) 
+        (printf "\nPlease enter your name so we can verify your account: ")
+        (let ((current-customer-info '()))  
+          ;==USER_INPUT		
+          (let ((current-customer-name (read))) 
+            (printf "\nEnter your password: ")
+            ;==USER_INPUT			
+            (let ((cus-pw (read))) 
+            
+              (if (account-lookup current-customer-name cus-list 'query)
+                  (set! name-gate 0)                
+                  (set! name-gate 5))
+            
+              (if (= name-gate 0)
+                  (set! current-customer-info 
+                        (account-lookup current-customer-name cus-list 'get-acc-info))
+                  (\newline))
+            
+              (if (account-password-check cus-pw current-customer-info)
+                  (set! cim 0)
+                  (set! cim 6))
+            
+              (if (= cim 0)
+                  (printf "\nWelcome!")                
+                  (printf "\nIncorrect name and password combination. Sorry!"))                     
+                               
+              (do ()                             
+                ((= cim 6))                
+                (customer-account-menu-display) 
+                ;==USER_INPUT
+                (set! cim (read))
+                (if (not (number? cim))
+                    (set! cim 23)
+                    (\newline))
+					
+                ;===============CUSTOMER INPUT DEPENDENT CONDITIONAL====================
+                ;==TO ALTER ACCOUNT INFORMATION ACCORDING TO THE FOLLOWING OPTIONS:
+                ;==1_ DISPLAY ACOCUNT HOLDER BALANCE
+                ;==2_ ADD USER_INPUT AMOUNT TO THE CURRENT BALANCE
+                ;==3_ SUBTRACT USER_INPUT AMOUNT FROM THE CURRENT BALANCE
+                ;==4_ USER_INPUT CUSTOMER FEEDBACK SURVEY
+                ;==5_ DISPLAY FULL ACCOUNT INFORMATION (INCLUDING PLAIN TEXT PASSWORD)
+                ;==6_ LOG OUT OF CUSTOMER INTERFACE AND RETURN THE MUTATED CUSTOMER INFO
+                ;=======================================================================
+                (cond
+                  ((eqv? cim '1)
+                   (printf "\nDisplaying account balance: $")                      
+                   (display (account-lookup current-customer-name current-customer-info 'balance))
+                   (\newline))
+                             
+                  ((eqv? cim '2)
+                   (printf "\nHow much are you depositing today? ")                      
+                   (set! current-customer-info (deposit current-customer-info (read)))                      
+                   (printf "\nYour new balance is: $")
+                   (display (account-lookup current-customer-name current-customer-info 'balance))                                            
+                   (printf "\nIS NOT REAL.")
+                   (\newline))
+          
+                  ((eqv? cim '3)
+                   (printf "\nWhat amount is your withdrawal for? ")
+                   (let ((withdrawal-amount (read)))
+                     (if (> (cadddr current-customer-info) withdrawal-amount)
+                         (set! current-customer-info 
+                               (withdrawal current-customer-info withdrawal-amount))
+                         (printf "\nInsufficient Funds."))
+                     (printf "\nYour new balance is: $")
+                     (display (account-lookup current-customer-name current-customer-info 'balance))                     
+                     (printf "\nTHIS MONEY DOES NOT EXIST OR DOES IT?")
+                     (\newline)))
+
+                  ((eqv? cim '4)
+                   (printf "\nHow was your banking experience today? ")
+                   (let ((mediocre-survey (read)))
+                     (printf "\nThat is quite the story. ")
+                     (display mediocre-survey)
+                     (\newline)))
+
+                  ((eqv? cim '5)
+                   (printf "\nAccount holder's name: ")
+                   (display (car current-customer-info))
+                   (printf "\nAccount number: ")
+                   (display (caddr current-customer-info))
+                   (printf "\nPassword for the account: ")
+                   (display (cadr current-customer-info))
+                   (printf "\nAccount balance: $")
+                   (display (cadddr current-customer-info))
+                   (\newline))
+                                
+                  ((eqv? cim '6)
+                   (printf "\nThank you for banking with us today. ")
+                   (\newline))
+                                                
+                  (else
+                   (printf "\nYou have selected an invalid option, please try again.")
+                   (\newline)))
+                )))current-customer-info)))))
+
+				
+
+;==================================SECRET-MENU-RUN================================================
+;==THE PASSWORD PROTECTED MANAGERS MENU THAT HAS MORE CONTROL OVER
+;==ALTERING THE BANK OF CUSTOMERS
+;==MOM IS THE MANAGER OPTIONS MENU INPUT VARIABLE
+;==RETURNS THE MUTATED CUS-LIST
+;==================================================================
+(define secret-menu-run
+  (lambda(cus-list)
+    (let ((mom 9))
+      (printf "\nSquirtle Worms: ")
+      (let ((secret-passcode (read)))
+        (if (eqv? secret-passcode 'taken)
+            (set! mom 0)
+            (set! mom 9))
+
+        (if (= mom 0)
+            (printf "\nWelcome!")
+            (printf "\nWrong passcode!"))
+
+        (do ()
+          ((= mom 9))                   
+          (secret-menu-display)
+          ;USER_INPUT                   
+          (set! mom (read))
+          (if (not(number? mom))
+              (set! mom 93)
+              (\newline))
+                   
+          ;==================MANAGER INPUT DEPENDENT CONDITIONAL=====================
+          ;==1_ PRINT THE COMPLETE LIST OF CUSTOMERS (INCLUDING PLAIN TEXT PASSWORDS) 
+          ;==2_ USER_INPUT CUSTOMER NAME TO PERMENENTLY ALTER ACCOUNT INFORMATION
+          ;==3_ PRINT THE CAR OF THE CUS-LIST
+          ;==4_ PRINT THE CDR OF THE CUS-LIST
+          ;==5_ PRINT THE CDAR OF THE CUS-LIST
+          ;==6_ PRINT THE CDDAR OF THE CUS-LIST
+          ;==7_ PRINT THE SUM TOTAL OF EVERY ACCOUNT
+          ;==8_ PERMENENTLY DELETE ALL ACCOUNT INFORMATION FOR EVERY CUSTOMER
+          ;==9_ EXIT AND RETURN TO GOBLIN MENU
+          ;==========================================================================
+          (cond
+            ((eqv? mom '1)
+             (printf "\nList of all customers: ")
+             (\newline)
+             (display cus-list))
+                     
+            ((eqv? mom '2) 
+             (printf "\nEnter the account holder to investigate")		 
+             (let ((old-name (read) ))
+                                           
+               (cond
+                 ((eqv?  #t (account-lookup old-name cus-list 'query))
+                  (let ((alter-account-info (account-lookup old-name cus-list 'get-acc-info))) 
+                                                      
+                    (set! alter-account-info (investigate-loop alter-account-info cus-list))
+                    (printf "\nThe updated customer account is: ")(display alter-account-info)               
+                    (set! cus-list 
+                          (cons (remv (cons old-name '()) cus-list) alter-account-info))))
+                 (else
+                  (printf "\nThat customer is not in the database.")))))                                                        
+
+            ((eqv? mom '3)
+             (printf "\n(car cus-list) is: ")
+             (display (car cus-list)))
+
+            ((eqv? mom '4)
+             (printf "\n(cdr cus-list is: ")
+             (display (cdr cus-list)))
+
+            ((eqv? mom '5)
+             (printf "\n(cdar cus-list is: ")
+             (display (cdar cus-list)))
+
+            ((eqv? mom '6)
+             (printf "\n(cddar cus-list)) is: ")
+             (display (cddar cus-list)))
+
+            ((eqv? mom '7)
+             (printf "\nThe total value of reserves in the bank is: $")             
+             (display (total-reserves cus-list)))
+
+            ((eqv? mom '8)
+             (printf "\nAre you sure? Deleting all of the customers is permanent.(y/n)")                  
+             (if (eqv? (read) 'y)
+                 (set! cus-list (delete-all))
+                 (printf "The list is still intact")
+                 ))
+                    
+            ((eqv? mom '9)                     
+             (printf "\nExiting Backdoor Banking App."))))))
+    cus-list))
+
+			 
+			 
+
+;=================================================================================================
+;==================================ACCOUNT ACTION PROCEDURES======================================
+;=================================================================================================
+
+
+
+;============================================DELETE-ALL===========================================
+;======DELETES ENTIRE LIST OF CUSTOMER RECORDS, RETURNING THE CUS-LIST HEADER
+;============================================================================
+(define delete-all
+  (lambda llist
+    (printf "ALL CUSTOMERS DELETED FROM RECORDS")
+    (cons 'cus-nam (cons 'acc-num (cons 'acc-bal '())))))
+	
+	
+
+;=====================================CREATE-NEW-ACCOUNT==========================================
+;===MAKE A NEW ACCOUNT, RETURNING A LIST THAT CONTAINS:
+;===CUSTOMER-NAME, ACCOUNT-NUMBER, ACCOUNT-BALANCE, PASSWORD
+;===========================================================
+(define create-new-account 
+  (lambda(acc-name n amount acc-pw)    
+    (let ((current-balance (cons  amount '())))
+      (let ((balance-and-amount (cons n current-balance)))
+        (let ((acc-info-tail (cons acc-pw balance-and-amount)))
+          (let ((account-info (cons acc-name acc-info-tail)))
+            account-info))))))
+
+			
+
+;====================================ACCOUNT-PASSWORD-CHECK=======================================
+;===RETURNS FALSE IF THE PASSWORD DOES NOT MATCH THE ACCOUNT INFO PASSED
+;=======================================================================			
+(define account-password-check
+  (lambda (pw-attempt account-info)    
+    (if (eqv? account-info null)
+        (set! pw-attempt '())
+        (\newline))
+    (cond
+      ((eqv? pw-attempt '()) #f)
+      ((equal? pw-attempt (car (cdr account-info))) #t)
+      (else #f))))
+   
+   
+
+;==========================================DEPOSIT================================================
+;==RETURNS A NEW ACCOUNT THAT HAS THE SAME INFORMATION AS THE ACCOUNT PASSED IN
+;==WITH THE ACCOUNT AMOUNT MODIFIED BY THE DEPOSIT AMOUNT
+;===============================================================================   
+(define deposit 
+  (lambda (list amount)
+    (cond
+      ((null? list) '())          
+      (else
+       (create-new-account (car list) (caddr list) (+ amount (cadddr list)) (cadr list))))))
+
+
+
+;===========================================WITHDRAWAL============================================
+;==IF THE ACCOUNT BALANCE IS STRICTLY LARGER THAN THE AMOUNT REQUEST
+;==A NEW ACCOUNT IS RETURNED WITH THE BALANCE MODIFIED BY THE AMOUNT TAKEN	
+;=========================================================================   
+(define withdrawal 
+  (lambda (list amount)
+    (cond
+      ((null? list) '())
+      (else
+       (if (> (cadddr list) amount)
+           (create-new-account (car list) (caddr list) (- (cadddr list) amount ) (cadr list))
+           list)))))
+		   
+		   
+		   
+;==============================================REMV===============================================
+;==PERMENENTLY REMOVES ALL RECORD OF THE CUSTOMER FROM CUS-LIST
+;==============================================================
+(define remv
+  (lambda (customer-to-remove full-list)    
+    (cond
+      
+      ((eqv? (cdr full-list) '())
+       (remv customer-to-remove (car full-list )))
+      
+      ((eqv? customer-to-remove null)
+       full-list)
+      
+      ((equal? (car customer-to-remove) 'cus-name)
+       full-list)
+      
+      ((equal? (car customer-to-remove) (car (cdr full-list)))
+       (car full-list))
+      
+      (else
+       (cons (remv customer-to-remove (car full-list) ) (cdr full-list))))))
+
+	   
+
+;=========================================TOTAL-RESERVES==========================================
+;==CALCULATES THE ACCOUNT BALANCE FROM EVERY ACCOUNT IN THE 
+;==BANK OF CUSTOMERS AND RETURNS THE SUM TOTAL
+;==========================================================	   
+(define total-reserves
+  (lambda (full-list)   
+    (cond
+      ((eqv? 'cus-nam (car full-list)) 0) 
+      ((null? (cdr full-list)) 
+       (total-reserves (car full-list)))   
+      (else
+       (+ (car(cddddr full-list)) (total-reserves (car full-list)))))))
+	   
+	   
+
+;======================================ACCOUNT-LOOKUP=============================================
+;==PROCEDURE TO LOOKUP ACCOUNT BASED ON NAME (S)PECIFIC NAME	
+;==RETURNS A VARIABLE DEPENDENT ON THE LOOKUP ACTION
+;============================================================   
+(define account-lookup    
+  (lambda (s list action)   
+    (let ((customer-account-info '())) 
+	
+      ;==ACTION DEPENDENT CONDITIONAL THAT RETURNS A VALUE BASED ON ARGUMENT OF LAMBDA==
+      ;==QUERY RETURNS #T IF ACCOUNT HOLDERS NAME IS FOUND 
+      ;==ACC-NUM-REF RETURNS #T IF THE ACCOUNT NUMBER IS FOUND
+      ;==BALANCE WILL RETURN THE ACCOUNT BALANCE FOR THE NAMED CUSTOMER
+      ;==GET-ACC-INFO WILL RETURN THE ACCOUNT INFORMATION
+      ;=================================================================================
+      (cond
+        ((equal? action 'query)(cond
+                                 ((null? list) #f) 
+                                 ((equal? (cdr list) '())
+                                  (account-lookup s (car list) 'query))
+                                 ((equal? (car list) 'cus-nam) #f) 
+                                 ((equal? (car(cdr list)) s) #t)
+                                 (else (account-lookup s (car list) 'query))))
+
+        ((equal? action 'acc-num-ref)(cond 
+                                       ((null? list) #f)
+                                       ((equal? (cdr list) '())
+                                        (account-lookup s (car list) 'acc-num-ref))
+                                       ((equal? (car list) 'cus-nam) #f)
+                                       ((equal? (car (cdddr list)) s) #t)
+                                       (else (account-lookup s (car list) 'acc-num-ref))))
+                                                           													   
+        ((equal? action 'balance)(cond 
+                                   ((null? list) #f)
+                                   ((equal? (car list) 'cus-nam) #f)
+                                   ((equal? (cdr list) '())
+                                    (account-lookup s (car list) 'balance))
+                                   ((equal? (car list) s)
+                                    (car(cdddr list)))                                                                        
+                                   (else '())))
+
+        ((equal? action 'get-acc-info)(cond 
+                                        ((null? list) '())
+                                        ((equal? (cdr list) '())
+                                         (account-lookup s (car list) 'get-acc-info))
+                                        ((equal? (car list) 'cus-nam) '())
+                                        ((equal? (car(cdr list)) s)
+                                         (set! customer-account-info (cdr list))
+                                         customer-account-info
+                                         )
+                                        (else (account-lookup s (car list) 'get-acc-info))))))))
+                
+
+
+	   
+;=====================================INVESTIGATE-LOOP============================================
+;==CALLED FROM MANAGERS-MENU: ACCESSES AND MODIFIES ACCOUNT INFORMATION	 
+;==ANY ACTION TAKEN FROM HERE IS PERMENENT AND IRREVOCABLE  	
+;==FCU IS THE FULL CONTROL USER INPUT VARIABLE		 
+;==RETURNS THE MODIFIED ACCOUNT INFORMATION
+;=======================================================================
+(define investigate-loop 
+  (lambda(account-information cus-list)
+    (let ((fcu 0))
+      (do ()
+        ((= fcu 6))
+
+        (\newline)
+        (printf "\nWhich account characteristic will you investigate? ")          
+        (printf "\n1.Account holder's name: ")  (display (car account-information))
+        (printf "\n2.Account holder's password: ")  (display (cadr account-information))
+        (printf "\n3.Account number: ") (display (caddr account-information))
+        (printf "\n4.Account balance: $")  (display (cadddr account-information))
+        (printf "\n6.Save and Exit")
+        (\newline)
+
+        ;==USER_INPUT
+        (set! fcu (read))
+        (if (not(number? fcu))
+            (set! fcu 93)
+			
+            ;=============MANAGER INPUT DEPENDENT CONDITIONAL================
+            ;==TO PERMENENTLY ALTER ACCOUNT INFORMATION
+            ;==1_ CHANGE ACCOUNT HOLDERS NAME TO:... USER_INPUT
+            ;==2_ CHANCE ACCOUNT HOLDERS PASSWORD TO:... USER_INPUT
+            ;==3_ CHANGE ACCOUNT NUMBER TO:... USER_INPUT
+            ;==4_ CHANGE ACCOUNT BALANCE TO:... USER_INPUT
+            ;==6_ EXIT PROCEDURE AND RETURN THE MUTATED CUSTOMER INFORMATION
+            ;================================================================
+            (cond
+              ((eqv? fcu 1)
+               (printf "Changing account holder's name to: ")
+               (set! account-information (cons (read) (cdr account-information))))
+
+              ((eqv? fcu 2)
+               (printf "Changing account holder's password to: ")
+               (set! account-information (cons (car account-information)
+                                               (cons (read) (cddr account-information)))))
+
+              ((eqv? fcu 3)
+               (printf "Changing account holder's account number to: ")
+               (let ((new-num (read)))
+                 (if (number? new-num)
+                     (if (account-lookup new-num cus-list 'acc-num-ref)
+                         (printf "\nThat account number is already in use")
+                         (set! account-information  
+                               (cons (car account-information)
+                                     (cons (cadr account-information)
+                                           (cons new-num (cdddr account-information))))))
+                     (printf "The account number must be numeric"))))            
+
+              ((eqv? fcu 4)
+               (printf "Changing account holder's balance to: ")
+               (let ((new-balance (read)))
+                 (if (number? new-balance)
+                     (set! account-information 
+                           (cons (car account-information)
+                                 (cons (cadr account-information)
+                                       (cons (caddr account-information)
+                                             (cons new-balance '())))))
+                     (printf "\nOnly numbers are valid as a balance"))
+                 (printf "\nCurrent account balance: $")
+                 (display (cadddr account-information))))
+
+              ((eqv? fcu 6)
+               (printf "\nFinished investigating ")
+               (display (car account-information))
+               (printf "'s account")               
+               )))))
+    account-information))
+    
+
+
+
+;==========================================GOBLIN-BANKING=========================================
+;==PRIMARY PROCEDURE HANDLING THE USER INTERACTION FROM THE ACTIVE MENU
+;==THE PASSWORD CHECK FOR THE IDENTIFICATION SECURITY PROTOCOL IS HERE (LOGINS)
+;==NEW ACCOUNT CREATION HAS A CONSENT FORM
+;==N THE ACCOUNT NUMBER TICKER IS MUTATED WHEN NEW ACCOUNTS ARE CREATED
+;==GOMI IS THE GOBLIN OPTIONS MENU INPUT VARIABLE
+;==RETURNS THE MUTATED CUS-LIST
+;==============================================================================
+(define goblin-banking
+  (lambda(cus-list n) 
+   
+    (let ((gomi 0)) 
+      (let ((current-customer '()))        
+        (do () ((= gomi 9)) 
+          (main-menu-display) 
+
+          ;==USER_INPUT          
+          (set! gomi (read)) 
+          (if (not (number? gomi )) 
+              (set! gomi 22)
+              (\newline))
+
+          ;=================USER SELECTED MENU OPTIONS CONDITIONAL=======================
+          ;==1_ PLACEHOLDER
+          ;==2_ PLACEHOLDER
+          ;==3_ CUSTOMER LOGIN - REQUIRES USERNAME AND PASSWORD CHECK
+          ;==4_ CREATE NEW USER_INPUT NAME AND USER_INPUT PASSWORD ACCOUNT WITH 0 BALANCE
+          ;==5_ LIST ALL CUSTOMER ACCOUNTS (AUTHORIZATION)
+          ;==6_ MANAGERS MENU USER_INPUT (PASSWORD IS REQUIRED)
+          ;==9_ EXIT THIS MENU (RETURNS THE MUTATED CUS-LIST)
+          ;==============================================================================	  
+          (cond
+            ((eqv? gomi '1) 
+             (printf "\nExecute menu option 1")
+             (printf "\nTESTING: "))
+
+            ((eqv? gomi '2) 
+             (printf "\nExactly as expected."))          
+
+            ((eqv? gomi '3)
+            
+             (set! current-customer (customer-interface cus-list))
+             (set! cus-list 
+                   (cons (remv current-customer cus-list) current-customer)))
+              
+            ((eqv? gomi '4)
+             (printf "\nBY CONTINUING YOU ACKNOWLEGDE THAT")
+             (printf "\nYOU HAVE YOU READ ALL TERMS AND ")
+             (printf "UNDERSTAND EVERY IMPLICATION.")           
+             (printf "\nYou are about to create a new account ")
+             (printf "with Golden Goblin Banking.")
+             (printf "\nPlease enter your name for our records: ")             			 
+             (let ((current-cus-name (read)))               
+               (cond
+                 ((eqv? (account-lookup current-cus-name cus-list 'query) #t) 
+                  (printf "\nThat account name is already in use")) 
+              
+                 (else
+                  (printf "\nEnter the password you are going to use to access your account: ")                  				  
+                  (let ((cus-pw (read))) 
+                    (if (account-lookup n cus-list 'acc-num-ref)
+                        (set! n (+ n 3)) 
+                        (set! cus-list 
+                              (cons 
+                               (cons 
+                                cus-list (create-new-account current-cus-name n 0 cus-pw) ) '())))                   
+                    (set! n (+ n 3))))
+                 )))
+
+            
+            ((eqv? gomi '5) 
+             (printf "\nAccess requires authorization..")
+             (\newline))
+
+            ((eqv? gomi '6) 
+             (set! cus-list (secret-menu-run cus-list)))
+
+            ((eqv? gomi '9)
+             (printf "\nClose out of menus.")))))
+      (cons cus-list n)))) 
+	 
+      
+
+;=================================================================================================
+;===========================================RUNTIME===============================================
+(define submit top-level)
+(submit)
+;=================================================================================================
+;=================================================================================================
+;=================================================================================================
+;=================================================================================================
+;=============================================END=================================================
+;=======================================================
+;==============================
+;==============
+;==

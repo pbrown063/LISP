@@ -1,0 +1,221 @@
+
+#lang racket
+;=========================================================================================
+;=========================================================================================
+;=============================COMMENTS SECTION============================================
+
+
+#|
+The goal of this program is to offer an AI that is able to carry a conversation.
+It is bascially an interpreter that will determine what the user is trying
+to convey and offer a response in appropriate english syntax.
+
+It will reference an association list of key words that will determine what
+type of word is being used. For example, the sentence:
+"I ate breakfast and walked my dog."
+will be looked up word by word and the results returned so that:
+(pro-pers vrb-act cnj pro-possess nwn-animal)
+will be displayed as a result.  I is a personal pronoun, ate is an action verb etc.
+
+This granularity will allow the program to get a sense of what the user is
+saying and generate an appropriate response.
+
+TODO---------------------------------------------------------------------------
+
+Implement net-pos -- a positivity tracker that the AI uses to determine what the
+conversational disposition of the user is.
+
+Implement phrase-history  -- an association list that keeps a record of the last
+5 phrases of the conversation (in both english and interpreted).
+
+Implement response-generator -- The core of the AI.  It will take the interpreted
+phrase and *other information*, construct the broad meaning of the phrase (eg
+ANS-NWT, meaning answer-neutral) based on the syntax and types of words used,
+returning a sentence that is directly pertinent to the user-input, but variable
+based on the word bank available.
++++ These will be procedural, not stock responses +++
+|#
+
+;=========================================================================================
+;====================MAIN LEVEL TO PULL FROM PROCEDURE POOL=================
+
+
+
+;=========================================================================================
+;===============================MEET-UP===================================================
+;==THE ARTIFICIAL GLOBAL WHERE THE MAIN RUN OF THE PROGRAM RESIDES
+;==THE DO LOOP WILL OPERATE AS A READ / INTERPRET RESPOND
+;==
+;=================================================================
+(define meet-up  
+  (lambda()
+    (let ((exitter 1))
+      (let ((response ""))
+        (let ((current-sentence '()))
+          (let ((ai-phrase '()))
+            (let ((disposition 0))
+              (printf "\nHello!\n")
+              (do()
+                ((= exitter 99))               
+                (set! response (sentence-to-list (read-line)))
+                (display response)
+                (set! current-sentence (wordify response '() ""))
+                (printf "\nmade a list of strings: ")(display current-sentence)
+                (set! ai-phrase (interpret-sentence current-sentence '()))
+                (printf"\nai-phrase: ")(display ai-phrase)
+            
+                (cond
+                  ((equal? ai-phrase '((bye)))
+                   (set! exitter 99))
+                  (else           
+                   (printf "\nTruck it!\n"))
+                  )))))))))
+
+
+
+;=========================================================================================
+;======================================WORD LIST==========================================
+;==THE DICTIONARY THAT THE AI USES TO FORM ITS VOCABULARY
+;==EACH WORD HAS A GENERAL MEANING ASSOCIATION
+;==FOR EXAMPLE: THE MEANING "PRO-PERS" MEANS PRONOUN-PERSONAL
+;==THERE IS A MAGNITUDE COUNTER FOR SOME WORDS THAT WILL ADD MEANING
+;===================================================================
+(define word-list
+  '((z non-class)
+    ;============PRONOUNS=====
+    ;pers = personal
+    ;plur = plural
+    ("i" pro-self) ("you" pro-self) ("he" pro-pers) ("she" pro-pers) ("i'm" pro-pers)
+    ("his" pro-possess) ("hers" pro-possess) ("your" pro-plur) ("their" pro-plur)
+    ("my" pro-possess) ("theirs" pro-plur-possess) ("that" pro-gen) ("her" pro-possess)
+
+    ;============ADJECTIVES===
+    ;POSITIVE
+    ("good" adj-pos-1) ("great" adj-pos-2) ("awesome" adj-pos-3) ("smart" adj-pos-2)
+    ("genius" adj-pos-3) ("hard" adj-pos-2) ("adorable" adj-pos-3) ("fine" adj-pos-2)
+    
+    ;NEGATIVE
+    ("terrible" adj-neg-3) ("bad" adj-neg-1) ("awful" adj-neg-2) ("thin" adj-neg-1)
+    
+    ;NEUTRAL
+    ("okay" adj-nwt) ("ok" adj-nwt) ("alright" adj-nwt)
+    ;============VERBS========
+    ;pp = past participal
+    ;fp = future participal    
+    ("went" vrb-move) ("made" vrb-act) ("met" vrb-interact) ("spoke" vrb-interact)
+    ("talked" vrb-interact) ("were" vrb-aux) ("have" vrb-basic) ("done" verb-pp)
+    ("cried" vrb-act) ("hit" vrb-act) ("have" vrb-possess) ("ate" vrb-act)
+    ("sounds" vrb-passive) ("feel" vrb-passive) ("lied" verb-act) ("get" vrb-act)
+    ("got" vrb-act) ("do" verb-fp)
+    ;============NOUNS========
+    ("cake" nwn-thing) ("that" nwn-ref) ("ball" nwn-thing)
+    ("store" nwn-place) ("cat" nwn-animal) 
+    ;============QUESTION=====
+    ("who" who) ("what" what) ("when" when) ("where" where) ("why" why) ("how" how)
+    ;============MISC=========
+    ("there" cmp) ("lunch" cmp) ("it" cmp) ("the" prp) ("and" cnj) ("many" inf)
+    ("hello" grt) ("hi" grt) ("name" cmp) ("that" cmp) ("today" cmp) (#\, cma)
+    (#\? que-mark) ("leave" bye) ("bye" bye) ("goodbye" bye) ("are" cmp)
+    ("will" cmp)
+    
+    
+    ))
+
+
+;==========================================================================
+;==========================================================================
+;=============================PROCEDURE POOL===============================
+
+
+
+;=========================================================================================
+;=====================================SENTENCE-TO-LIST====================================
+;==RETURNS A LOWER CASE LIST OF CHARACTERS FROM A STRING (SENTENCE)
+;==================================================================
+(define sentence-to-list
+  (lambda (str)
+    (string->list (string-downcase str))))
+
+
+
+;=========================================================================================
+;===========================================WORDIFY=======================================
+;==TAKES A LIST OF CHARACTERS (FROM SENTENCE-TO-LIST)
+;==A BLANK LIST TO WRITE INTO
+;==AND AN EMPTY STRING TO START WITH
+;==IT FORMS A STRING OUT OF THE CHARACTERS AND APPENDS THE LIST
+;==WHEN A WHITE SPACE IS ENCOUNTERED, RETURNING A LIST OF STRINGS REPRESENTING
+;==A SENTENCE
+(define wordify  
+  (lambda (list-of-chars transfer-list current-word)                    
+    ;==CONDITIONAL LOOP WITH VARIABLE DEPENDENCIES
+    ;==IF THE LIST-OF-CHARACTERS IS EMPTY THEN THE PROCEDURE IS COMPLETE, RETURN SENTENCE-LIST
+    ;==IF THE NEXT ELEMENT IN CHAR-LIST IS A '?' THEN APPEND THE LIST WITH A '?'
+    ;==IF THE NEXT ELEMENT IN CHAR-LIST IS WHITESPACE THEN ADD THE CURRENT WORD
+    ;==AS A NEW ELEMENT TO THE RETURN-LIST AND RESET THE CURRENT-WORD
+    ;==ELSE STEP INTO THE PROECURE AGAIN, TRANSFERING THE FIRST ELEMENT
+    ;==OF THE CHAR-LIST TO THE CURRENT-WORD
+    (cond      
+      ((equal? list-of-chars '())       
+       (set! transfer-list (append-list transfer-list current-word))       
+       transfer-list)
+      
+      ((equal? (car list-of-chars) #\?)       
+       (set! transfer-list (append-list transfer-list current-word))
+       (set! transfer-list (append-list transfer-list #\?))
+       transfer-list)
+      
+      ((char-whitespace? (car list-of-chars))
+       (if (eqv? transfer-list '())
+           (set! transfer-list (list current-word))
+           (set! transfer-list (append-list transfer-list current-word)))
+       (wordify (cdr list-of-chars) transfer-list ""))         
+
+      (else  
+       (wordify (cdr list-of-chars) transfer-list
+                (string-append current-word (string (car list-of-chars))))                       
+       ))))
+
+
+;=========================================================================================
+;=================================INTERPRET-SENTENCE=======================================
+;==TAKES IN A LIST OF STRINGS AND RETURNS A LIST OF STRINGS
+;==THE RETURNED LIST OR 'TRANSLATION' IS BASED ON THE CONTENTS OF
+;==THE AI DICTIONARY
+;================================================================
+(define interpret-sentence
+  (lambda (sentence translation)
+    (cond
+      ((eqv? sentence '())
+       translation)
+      ((assoc (car sentence) word-list)
+       (set! translation
+             (append-list translation (cdr(assoc (car sentence) word-list))))
+       (interpret-sentence (cdr sentence) translation))
+      (else
+       (set! translation (append-list translation "dnx"))
+       (interpret-sentence (cdr sentence) translation)
+       ))))
+       
+
+   
+;============================================================================================
+;==============================APPEND-LIST===========================================
+;==TAKES A LIST TO APPEND AND WITH WHAT ELEMENT AND
+;==ADDS THAT ELEMENT ONTO THE END OF THE LIST
+;==================================================
+(define append-list
+  (lambda (list-to-append append-element)
+    (if (eqv? list-to-append '())
+        (list append-element)
+        (cons (car list-to-append) (append-list (cdr list-to-append) append-element))
+        )))
+
+       
+       
+
+
+
+
+;==============================RUN ACTUAL PROGRAM============================
+(meet-up)

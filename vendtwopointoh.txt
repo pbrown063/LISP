@@ -1,0 +1,509 @@
+#lang racket
+#|
+
+===========================COMMENTARY===========================
+THE VENDING MACHINE WILL KEEP TRACK OF THE DELICIOUS TREATS
+FOR YOUR ENJOYMENT
+THE MONEY IS STORED IN CASH-IN-STOCK
+THERE IS A COIN SLOT STORAGE DEVICE CALLED CASH-IN-QUEUE
+ALL OF THE COIN VALUES ARE INSTANTIATED AS PROCEDURES:
+==== (N)  INSERTS A 5   CENT NICKEL
+==== (D)  INSERTS A 10  CENT DIME
+==== (Q)  INSERTS A 25  CENT QUARTER
+==== (L)  INSERTS A 100 CENT LOONIE
+==== (T)  INSERTS A 200 CENT TOONIE
+
+THE MACHINE NEEDS TO BE PERIODICALLY RESTOCKED WITH THE STOCK-MACHINE
+PROCEDURE... THE CASH-IN-STOCK WILL BE EMPTIED AT THIS TIME...
+
+INTENDED FEATURES INCLUDE CHANGING PRODUCTS THAT CURRENTLY RESIDE.
+
+
+
+
+=====================================TO DO=========================
+NOW WITH PRIORTITY LEVELS
+1 = DO NEXT        2 = DO SOMETIME SOON       3 = DO MUCH LATER
+
+
+vvvvvvvvvvvvvvvvvvvvvv------COMPLETE-----------vvvvvvvvvvvvvvvvvvvvvv
+1) ALTER THE STOCK-MACHINE PROCEDURE TO DIRECTLY ACCESS STOCKS
+   AND MODIFY THE PRODUCT-LIST STOCKS WITHOUT AFFECTING THE
+   PRODUCT DESCRIPTION, PRICE ETC.  SIMILAR TO THE PRODUCT-PURCHASED
+   PROCEDURE, BUT SETTING THE STOCK VALUE OF EACH SLOT TO 5
+^^^^^^^^^^^^^^^^^^^^^-------COMPLETE-----------^^^^^^^^^^^^^^^^^^^^^^
+
+
+3) MAKE A PROCEDURE THAT WILL ALTER THE VALUE OF CASH DISPLAYED TO FIT
+   CURRENCY FORMAT... EG, $300 IS CURRENTLY OUTPUT... THE GOAL WOULD BE
+   TO OUTPUT $3.00    ...  $250 -> $2.50 ETC...
+   (DISPLAY-DOLLAR-DECIMAL CASH-IN-STOCK)
+   > $47.50
+   (DISPLAY-DOLLAR-DECIMAL CASH-IN-QUEUE)
+   > $2.25
+
+
+3) MAKE A COMPANY BANK ACCOUNT THAT THE CASH-IN-STOCK IS PUT INTO
+
+
+
+vvvvvvvvvvvvvvvvvvvvvv------COMPLETE-----------vvvvvvvvvvvvvvvvvvvvvv
+1) ALTER PRODUCT LIST WITH READ FUNCTION
+          
+         (NEW-PRODUCT PRODUCT-LIST)
+           -LIST TO INSERT-
+ TEXT:   "WHICH SLOT OF THE MACHINE IS THIS PRODUCT GOING TO OCCUPY?"
+         (READ)
+           -MUTATE LIST TO INSERT-
+ TEXT:   "HOW MUCH WILL THIS PRODUCT COST?"
+         (READ)
+           -MUTATE LIST TO INSERT-
+ TEXT:   "WHAT WILL THIS PRODUCT BE CALLED?"
+         (READ)
+           -MUTATE LIST TO INSERT-
+ TEXT:   "HOW MANY OF THIS PRODUCT WILL BE STOCKED TODAY?"
+         (READ)
+           -MUTATE LIST TO INSERT-
+         ===MUTATE MAIN PRODUCT LIST BY REPLACING THE OLD PRODUCT IN SLOT===
+ TEXT:  "THE NEW PRODUCT IS NOW READY TO BE SERVED!"
+ ^^^^^^^^^^^^^^^^^^^^-----COMPLETE-----------^^^^^^^^^^^^^^^^^^^^^^
+vvvvvvvvvvvvvvvvvvvvvvvvvvvv---DONE---vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+1)  MAKE A PROCEDURE TO DISPLAY THE PRDUCTS IN A VISUALLY PLEASING WAY
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^---DONE---^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+vvvvvvvvvvvvvvvvvvvvvvvvvvvvv---DONE---vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+2) PASSWORD PROTECT ACCESSING THE CASH-IN-STOCK, CASH-IN-QUEUE,
+   STOCK MACHINE AND OTHER MANAGER COMMANDS.
+   KEEP THE PURCHASE-MADE COMMAND OPEN FOR THOSE ENDEAVORING HACKERS.
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^----DONE----^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+vvvvvvvvvvvvvvvvvvvvvvvvvvvv----DONE----vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+1) MAKE AN VISUALLY PLEASING INTERFACE FOR THE CUSTOMERS.
+     CURRENT-CUSTOMER-FUNDS
+     A VISUAL ARRAY OF EACH DELICIOUS SNACK
+     A COIN SLOT
+     A CHANGE CHUTE
+     BUTTONS
+     HIDDEN PASSWORD PROTECTED MANAGERS MENU
+     =====THE MENU OPTIONS HERE WILL INDICATE WHAT ENTRIES WILL RESULT
+          IN WHAT RESPONSES... EG, ENTERING Q AND HITTING RETURN WILL
+          RUN THE QUARTER PROCEDURE, INCREASING THE CASH-IN-QUEUE BY
+          25
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^----DONE----^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+vvvvvvvvvvvvvvvvvvvvvvvvvvvv----DONE----vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+3) MAKE ALL COMMANDS AVAILABLE THROUGH THE MENU / READ INTERFACE TO MAKE
+   INFORMATION MORE SECURE,
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^----DONE----^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+3) MAKE MACHINE COMPATIBLE WITH BILLS
+
+
+vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv----DONE----vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+2) MAKE ALL OF THE SELECTIONS INTO ONE SINGLE PROCEDURE THAT TAKES THE
+   LETTER NUMBER COMBINATION AS ITS ARGUMENT
+ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^----DONE----^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+|#
+
+;===========================VENDING MACHINE=========================
+
+(define company-account 0)
+(define cash-in-queue 0)
+(define cash-in-stock 0)
+(define build-product-list '())
+(define machine-lock '())
+
+(define vending-machine
+  (lambda()
+    (let ((input 0))
+      (do()
+        ((eqv? input 'exit))
+        (printf "\n\nCurrent change: $")
+        (display cash-in-queue)
+        (printf "\n\n1.Look at the products.")        
+        (printf "\n2.Open locked door of the machine.")
+        (printf "\nInsert coin by pressing the first letter of the coin (n, d, q, l, t) and hitting enter.")
+        (printf "\nInsert a bill by pressing the number of dollars the bill is worth and hitting enter.")
+        (printf "\nPurchase a product by keying in the product code and hitting enter.\n")
+        (set! input (read))
+        (if (string? input)
+            (begin
+              (set! input (string-downcase input))
+              (printf"\n"))
+            (printf"\n"))            
+        (selection input)))))
+        
+            
+           
+
+
+;default product lineup
+(define products
+  '((a1 150 "Miss Vickie's Sweet Chili and Sour Cream" 0)
+    (a2 200 "Wunderbar" 0)
+    (a3 150 "Rolled Gold Pretzels" 0)
+    (b1 200 "Old Dutch Ruffle Cut Potatoe Chips" 0)
+    (b2 150 "Kit Kat Bar" 0)
+    (b3 150 "Peppermint Chips" 0)
+    (c1 200 "BBQ Baked Lays" 0)
+    (c2 200 "Peanut Butter Chocolate Cliff Bar" 0)
+    (c3 300 "Cookie Dough" 0)
+    (d1 200 "Astronaut Ice Cream" 0)
+    (d2 300 "Vanilla Ice Cream" 0)
+    (d3 300 "Oreo Ice Cream Sandwich" 0)))
+
+
+
+;==========================SET VALUE FOR EACH COIN==================
+(define n
+  (lambda()
+    (set! cash-in-queue (+ cash-in-queue 5))))
+
+(define d
+  (lambda()
+    (set! cash-in-queue (+ cash-in-queue 10))))
+
+(define q
+  (lambda()
+    (set! cash-in-queue (+ cash-in-queue 25))))
+
+(define l
+  (lambda()
+    (set! cash-in-queue (+ cash-in-queue 100))))
+
+(define t
+  (lambda()
+    (set! cash-in-queue (+ cash-in-queue 200))))
+	
+
+
+;=============================================================================
+;=============================PURCHASE-PRODUCT====================================
+
+
+(define product-purchase
+  (lambda(product-code)
+    (if (eqv? machine-lock '())
+        (if (= (cadddr (assoc product-code products)) 0)
+            (begin
+              (printf"\n")
+              (display (caddr (assoc product-code products)))
+              (printf" is currently out of stock."))
+          
+            (if (>= cash-in-queue (cadr (assoc product-code products)))
+                (begin
+                  (purchase-made product-code products)
+                  (printf"\nEnjoy your ")
+                  (display (caddr (assoc product-code products)))
+                  (set! cash-in-stock (+ cash-in-stock (cadr (assoc product-code products))))
+                  (set! cash-in-queue (- cash-in-queue (cadr (assoc product-code products))))
+                  (printf"\nCollect your change of $")				  
+                  (display cash-in-queue)
+                  (set! cash-in-queue 0))
+                          
+                (begin
+                  (printf"\nYou have: $")
+                  (display cash-in-queue)
+                  (printf"\nThe ")
+                  (display (caddr (assoc product-code products)))
+                  (printf" costs $")
+                  (display (cadr (assoc product-code products))))
+                ))
+        (printf"\nYou cannot make purchases with the door ajar."))))
+
+
+
+
+;===========================================================================
+;===========================================================================
+;===========================================================================
+;===========================================================================
+
+
+;===============================OPEN-MACHINE====================================
+;==REQUIRES A PASSWORD TO ACCESS
+;this needs to be password protected...and lock dependent procedures...priority 2
+;make this into a number punch menu (read) menu options 1-4
+;==OPENS THE MACHINE ALLOWING FOR MODIFICATIONS
+(define open-machine 
+  (lambda(passcode)
+    (if (eqv? passcode 'crackercat)
+        (begin
+          (set! machine-lock 'open)
+          (set! build-product-list '())
+          (let ((sms 0))
+            (do()
+              ((eqv? sms 'close-door))
+                      
+              (printf"\n\nThe machine is open, you can:
+1.Stock the machine to product pars.
+2.Add a new product.
+3.Collect the cash from the cash resovoir.
+4.Close and relock the door\n")
+
+              (set! sms (read))
+              (if (and (number? sms) (< sms 5) (> sms 0))
+                  (begin
+                    (cond
+                      ((eqv? sms 1)
+                       (stock-machine products))
+
+                      ((eqv? sms 2)
+                       (add-new-product products))
+
+                      ((eqv? sms 3)
+                       (collect-coins))
+
+                      ((eqv? sms 4)
+                       (close-machine)
+                       (set! sms 'close-door))))
+                  (printf"\nPlease take a valid action from the menu")))))
+        (printf"\nThat is incorrect!"))))
+
+
+;===============================COLLECT-COINS=====================================
+;==MUTATES THE COINS-IN-STOCK VALUE TO 0
+(define collect-coins
+  (lambda()
+    (if (eqv? machine-lock 'open)
+        
+        (if (> 0 cash-in-stock)
+            (begin
+              (printf"\nYou have collected the $")
+              (display cash-in-stock)
+              (printf" from the vending machine")
+			  (set! company-account (+ cash-in-stock company-account))
+              (set! cash-in-stock 0))
+            (printf"\nYou did not find any change."))
+          
+        (printf"The machine is locked and the alarm sounds with your attempt."))))
+
+
+;===============================ADD-NEW-PRODUCT=====================================
+;==TAKES NO ARGUMENTS AND WILL MUTATE THE PRODUCTS LIST DELETING THE OLD RECORD CODE
+;==DO THIS NEXT
+(define add-new-product
+  (lambda(products-list)
+    (let ((new-product '()))
+      (let ((price 0))
+        (let ((name "placeholder"))
+          (let ((p-code '00))
+            (if (eqv? machine-lock 'open)
+                (begin          
+                  (printf"\nEnter the name or description of the new product: ")				  
+                  (set! name (read-line)) ;next byte line was already in 
+                  (set! name (read-line)) ;this solved that problem				  
+                  (printf"\nEnter the price of the product in cents: ")
+                  (set! price (read))
+                  
+                  (if (number? price)
+                      (begin
+                        (printf"\nEnter the product code of the product: ")
+                        (set! p-code (read))
+                        (set! new-product (list p-code price name 5))
+                        (insert-product new-product products)
+                        (set! build-product-list '()))
+                      (printf"\nYou must enter a number for the price of a product.")))
+        
+                (printf"\nYou cannot fit that in while the vending machine is locked."))))))))
+
+
+
+;===============================INSERT-PRODUCT======================================
+      
+(define insert-product
+  (lambda (product-to-place list-of-products)        
+    (cond
+      ((eqv? build-product-list '())       
+       (set! build-product-list (list (car list-of-products)))                    
+       (insert-product product-to-place (cdr list-of-products)))
+        
+      ((eqv? list-of-products '())            
+       (set! build-product-list '()))
+            
+      ((eqv? (caar list-of-products) (car product-to-place))
+       (printf"\nReplacing: ") (display (caddar list-of-products))
+       (printf"\nWith: ") (display (caddr product-to-place))
+       (set! build-product-list (append build-product-list (list product-to-place)))       
+       (insert-product product-to-place (cdr list-of-products)))
+                                              
+      ((eqv? (caar list-of-products) 'd3)                                              
+       (set! products (append build-product-list list-of-products)))
+      
+      (else
+       (set! build-product-list (append build-product-list (list (car list-of-products))))
+       (insert-product product-to-place (cdr list-of-products)))
+      )))
+            
+
+;===============================CLOSE-MACHINE=====================================
+;==CLOSES THE MACHINE DOOR AND LOCKS IT
+(define close-machine
+  (lambda()
+    (if (eqv? machine-lock 'open)
+        (begin
+          (set! build-product-list '())
+          (set! machine-lock '())
+          (printf"\nHave a nice day!"))
+
+        (printf"\nThe door is already closed dummy."))))
+    
+  
+
+;==stock-machine stocks all of the products to 5 items
+(define stock-machine
+  (lambda(products-to-stock)
+    (if (eqv? machine-lock 'open)
+        (begin
+          (if (eqv? products-to-stock '())
+              (begin
+                (set! products build-product-list)
+                (set! build-product-list '())
+                (printf"\nYou have stocked each product to a par of 5"))
+              (begin
+                (set! build-product-list (append build-product-list
+                                                 (list (list
+                                                        (caar products-to-stock) (cadar products-to-stock)
+                                                        (caddar products-to-stock) 5))))
+                (stock-machine (cdr products-to-stock)))      
+              ))
+        (printf "\nYou will need to open the machine before you stock it..."))))
+
+
+
+;show products shows the product name, code and cost in a pleasing format
+(define show-products
+  (lambda(list-of-products)
+    (if (eqv? list-of-products '())
+        (printf"\n")
+        (begin
+          (printf"\n")
+          (display (caar list-of-products))
+          (printf"    $")
+          (display (cadar list-of-products))
+          (printf"    ")
+          (display (caddar list-of-products))          
+          (show-products (cdr list-of-products))))))               
+
+
+
+;(purchase-made a1 products) will decrement the stock column in products for product by 1
+;(purchase-made 'xn products))
+(define purchase-made
+  (lambda(product-code listt)    
+    (cond
+      ((eqv? listt '())
+       (set! products build-product-list)
+       (set! build-product-list '()))
+        
+      ((eqv? product-code (caar listt))         
+       (set! build-product-list (append build-product-list
+                                        (list (list
+                                               (caar listt) (cadar listt)
+                                               (caddar listt) (- (car (cdddar listt)) 1)))))       
+       (purchase-made product-code (cdr listt)))
+                 
+      (else
+       (set! build-product-list (append build-product-list (list (car listt))))
+       (purchase-made product-code (cdr listt))))))
+
+
+
+
+
+(define selection
+  (lambda(choice)
+    (cond
+      ((eqv? choice 1)
+       (printf"\n")
+       (show-products products))
+              
+      ((eqv? choice 2)
+       (printf"\nEnter the passcode: ")
+       (open-machine (read)))
+              
+      ((eqv? choice 'n)
+       (n))
+              
+      ((eqv? choice 'd)
+       (d))
+              
+      ((eqv? choice 'q)
+       (q))
+              
+      ((eqv? choice 'l)
+       (l))
+              
+      ((eqv? choice 't)
+       (t))
+	   
+      ((eqv? choice 5)             
+         (set! cash-in-queue (+ cash-in-queue 500)))
+	
+      ((eqv? choice 10)       
+         (set! cash-in-queue (+ cash-in-queue 1000)))
+	   
+      ((eqv? choice 20)       
+         (set! cash-in-queue (+ cash-in-queue 2000)))
+
+      ((eqv? choice 'a1)
+       (product-purchase 'a1))
+
+              
+      ((eqv? choice 'a2)
+       (product-purchase 'a2))
+
+              
+      ((eqv? choice 'a3)
+       (product-purchase 'a3))
+
+              
+      ((eqv? choice 'b1)
+       (product-purchase 'b1))
+
+              
+      ((eqv? choice 'b2)
+       (product-purchase 'b2))
+
+              
+      ((eqv? choice 'b3)
+       (product-purchase 'b3))
+
+              
+      ((eqv? choice 'c1)
+       (product-purchase 'c1))
+
+              
+      ((eqv? choice 'c2)
+       (product-purchase 'c2))
+
+              
+      ((eqv? choice 'c3)
+       (product-purchase 'c3))
+              
+      ((eqv? choice 'd1)
+       (product-purchase 'd1))
+
+              
+      ((eqv? choice 'd2)
+       (product-purchase 'd2))
+               
+                            
+      ((eqv? choice 'd3)
+       (product-purchase 'd3))
+	   
+	   (else
+	   (printf"\nThat is not a valid entry.")))))
+
+
+;==================================================================================
+;==================================================================================
+;==================================================================================
+;==================================================================================
+;==================================================================================
+;MAIN RUN
+  
+(vending-machine)
+    
+
+
